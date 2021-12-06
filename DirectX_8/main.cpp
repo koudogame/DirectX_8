@@ -153,11 +153,47 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return 0;
     }
 
+    // 深度・ステンシルビューの作成
+    ID3D11DepthStencilView* depth_stencil_view;
+
+    // 深度・ステンシルテクスチャの作成
+    D3D11_TEXTURE2D_DESC ds;
+    ZeroMemory(&ds, sizeof(ds));
+    ds.Width = 1280U; // 横幅
+    ds.Height = 720U; // 縦幅
+    ds.MipLevels = 1U;//ミップマップレベル
+    ds.ArraySize = 1U;//配列サイズ
+    ds.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;// 深度フォーマット
+    ds.Usage = D3D11_USAGE_DEFAULT;           // バッファの使用方法(デフォルト)
+    ds.BindFlags = D3D11_BIND_DEPTH_STENCIL;  // 深度・ステンシルとして使用
+    ds.SampleDesc.Count = 1U;                 // アンチエイリアシングの指定
+
+    // 深度ステンシルビューの作成
+    D3D11_DEPTH_STENCIL_VIEW_DESC dsv;
+    ZeroMemory(&dsv,sizeof(dsv));
+    dsv.Format = ds.Format;// フォーマット
+    dsv.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;// 2Dテクスチャとアクセス
+
+    // 深度ステンシルテクスチャの作成
+    ID3D11Texture2D* depth_stencil_texture;
+    if (FAILED(d3d_device->CreateTexture2D(&ds, nullptr, &depth_stencil_texture)))
+    {
+        // エラー
+        return 0;
+    }
+
+    // 深度ステンシルビューの作成
+    if (FAILED(d3d_device->CreateDepthStencilView(depth_stencil_texture, &dsv, &depth_stencil_view)))
+    {
+        // エラー
+        return 0;
+    }
+
     // 描画ターゲットビューを出力マネージャーの描画ターゲットとして設定
     device_context->OMSetRenderTargets(
         1,                   // 描画ターゲット数
         &render_target_view, // ターゲットビュー配列
-        nullptr);           // 深度ステンシルビュー
+        depth_stencil_view); // 深度ステンシルビュー
 
     // バックバッファの解放
     back_buffer->Release();
@@ -198,13 +234,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         1.0F,                        // NEARクリップ面
         100.0F);                    // FARクリップ面
 
+    //*******************************
+    // スフィア
+    //*******************************
     // GemetricPrimitiveクラス変数の宣言
-    std::unique_ptr<GeometricPrimitive> sphere =
-        GeometricPrimitive::CreateSphere(
-            device_context,// デバイスコンテキスト
-            1.0f,// サイズ
-            16U// 分割数
-            );
+    //std::unique_ptr<GeometricPrimitive> sphere =
+    //    GeometricPrimitive::CreateSphere(
+    //        device_context,// デバイスコンテキスト
+    //        1.0f,// サイズ
+    //        16U// 分割数
+    //        );
+
+    //*******************************
+    // Cube
+    //*******************************
+    /*std::unique_ptr<GeometricPrimitive> cube =
+        GeometricPrimitive::CreateCube
+        (
+            device_context,
+            1.0f,
+            true
+        );*/
+
+    //********************************
+    // Teapot
+    //********************************
+    std::unique_ptr<GeometricPrimitive> teapot =
+        GeometricPrimitive::CreateTeapot(device_context, 1.0f);
+
+    //********************************
+    // Torus
+    //********************************
+    std::unique_ptr<GeometricPrimitive> torus =
+        GeometricPrimitive::CreateTorus(
+            device_context,
+            1.0f
+        );
 
     // ウィンドウの表示
     ShowWindow(hWnd, SW_SHOWNORMAL);
@@ -214,6 +279,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // ループ制御のための時刻計測
     auto prev = std::chrono::high_resolution_clock::now();
+
+    // 回転用変数
+    float rotation = 0.0f;
 
     while (msg.message != WM_QUIT)
     {
@@ -232,6 +300,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             // 現在の時刻から前回の時刻を引く
             auto elapsed = duration_cast<microseconds>(now - prev);
 
+
             // 約16ミリ秒以上経過していたら更新を行う
             if (elapsed.count() > 16666LL)
             {
@@ -239,21 +308,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                 prev = now;
 
                 // ワールド行列の作成
-                Matrix world;
+                Matrix world = Matrix::CreateRotationY(XMConvertToRadians(++rotation));
 
                 // 画面クリア
                 float color[] = { 0.3F, 0.3F, 0.3F, 1.0F }; // RGBAを0.0～1.0の間で指定
                 device_context->ClearRenderTargetView(render_target_view, color);
+                device_context->ClearDepthStencilView(depth_stencil_view, D3D10_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0F, 0);
 
+                //*************************************
                 // スフィアの描画
-                sphere->Draw(
-                    world,// ワールド行列
-                    view,// ビュー行列
-                    projection,// 射影行列
-                    Colors::Red,// カラー
-                    nullptr,// テクスチャの指定
-                    true// ワイヤーフレーム有効
-                );
+                //*************************************
+                //sphere->Draw(
+                //    world,// ワールド行列
+                //    view,// ビュー行列
+                //    projection,// 射影行列
+                //    Colors::Red,// カラー
+                //    nullptr,// テクスチャの指定
+                //    true// ワイヤーフレーム有効
+                //);
+
+                //***************************************
+                // キューブの描画
+                //***************************************
+                //cube->Draw(
+                //    world,        // ワールド座標
+                //    view,         // ビュー行列
+                //    projection,   // 射影行列
+                //    Colors::White,// カラー
+                //    nullptr,      // テクスチャの設定
+                //    false         // ワイヤーフレーム
+                //);
+
+                // ティーポットの描画
+                //teapot->Draw(world, view, projection, Colors::White, nullptr, false);
+
+                // トーラスの描画
+                torus->Draw(world, view, projection, Colors::Brown);
 
                 // 画面更新
                 swap_chain->Present(1, 0);
@@ -263,6 +353,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // インターフェースの解放
     // 確保した順の逆に解放していく
+    depth_stencil_texture->Release();
+    depth_stencil_view->Release();
     render_target_view->Release();
     swap_chain->Release();
     device_context->ClearState();
